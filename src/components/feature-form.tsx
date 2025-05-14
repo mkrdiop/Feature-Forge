@@ -7,13 +7,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Loader2, AlertTriangle, Info, CalendarDays, Lightbulb } from 'lucide-react';
+import { Loader2, AlertTriangle, Info, CalendarDays, Lightbulb, FileJson, FileText, Download } from 'lucide-react';
 import { suggestFeatures } from '@/ai/flows/suggest-features';
 import type { SuggestFeaturesOutput, FeatureDetail } from '@/ai/flows/suggest-features';
 import { suggestDevPlan } from '@/ai/flows/suggest-dev-plan';
 import type { SuggestDevPlanOutput, DevPlanPhase } from '@/ai/flows/suggest-dev-plan';
 import FeatureCard from '@/components/feature-card';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from './ui/card'; // Added CardFooter
+import { Separator } from './ui/separator'; // Added Separator
 
 export default function FeatureForm() {
   const [appDescription, setAppDescription] = useState<string>('');
@@ -26,6 +27,18 @@ export default function FeatureForm() {
   const [isLoadingDevPlan, setIsLoadingDevPlan] = useState<boolean>(false);
   const [devPlanError, setDevPlanError] = useState<string | null>(null);
 
+  const downloadFile = (filename: string, content: string, mimeType: string) => {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const handleFeatureSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!appDescription.trim()) {
@@ -37,7 +50,7 @@ export default function FeatureForm() {
     setFeaturesError(null);
     setFeatures([]);
     setShowInitialMessage(false);
-    setDevPlan(null); // Reset dev plan if generating new features
+    setDevPlan(null); 
     setDevPlanError(null);
 
 
@@ -74,6 +87,50 @@ export default function FeatureForm() {
     } finally {
       setIsLoadingDevPlan(false);
     }
+  };
+
+  // Export Features
+  const handleExportFeaturesAsJSON = () => {
+    if (!features.length) return;
+    const jsonData = JSON.stringify(features, null, 2);
+    downloadFile(`${devPlan?.projectName || 'app'}-features.json`, jsonData, 'application/json');
+  };
+
+  const handleExportFeaturesAsMarkdown = () => {
+    if (!features.length) return;
+    let mdData = `# Suggested Features for "${appDescription.substring(0, 50)}${appDescription.length > 50 ? '...' : ''}"\n\n`;
+    mdData += `Based on your description: "${appDescription}"\n\n---\n\n`;
+    features.forEach(feature => {
+      mdData += `## ${feature.name}\n`;
+      mdData += `**Description:** ${feature.description}\n`;
+      mdData += `**Category:** ${feature.category}\n`;
+      mdData += `**Complexity:** ${feature.complexity}\n\n---\n\n`;
+    });
+    downloadFile(`${devPlan?.projectName || 'app'}-features.md`, mdData, 'text/markdown');
+  };
+
+  // Export Dev Plan
+  const handleExportDevPlanAsJSON = () => {
+    if (!devPlan) return;
+    const jsonData = JSON.stringify(devPlan, null, 2);
+    downloadFile(`${devPlan.projectName}-dev-plan.json`, jsonData, 'application/json');
+  };
+
+  const handleExportDevPlanAsMarkdown = () => {
+    if (!devPlan) return;
+    let mdData = `# Development Plan: ${devPlan.projectName}\n\n`;
+    mdData += `**Based on App Description:** ${appDescription}\n\n`;
+    mdData += `## Executive Summary\n${devPlan.executiveSummary}\n\n---\n\n`;
+    mdData += `## Development Phases\n`;
+    devPlan.phases.forEach(phase => {
+      mdData += `### ${phase.phaseTitle}\n`;
+      mdData += `**Goal:** ${phase.phaseGoal}\n`;
+      mdData += `**Estimated Duration:** ${phase.estimatedDuration}\n`;
+      mdData += `**Features to Implement:**\n${phase.featuresToImplement.map(f => `- ${f}`).join('\n')}\n\n`;
+    });
+    mdData += `---\n\n## Overall Estimated Timeline\n${devPlan.overallTimeline}\n\n---\n\n`;
+    mdData += `## Key Recommendations\n${devPlan.recommendations.map(rec => `- ${rec}`).join('\n')}\n`;
+    downloadFile(`${devPlan.projectName}-dev-plan.md`, mdData, 'text/markdown');
   };
 
 
@@ -147,6 +204,26 @@ export default function FeatureForm() {
               <FeatureCard feature={featureItem} index={index} key={index} />
             ))}
           </div>
+
+          <div className="mt-8 pt-6 border-t border-border flex flex-col sm:flex-row justify-center items-center gap-4">
+             <h4 className="text-md font-medium text-muted-foreground mb-2 sm:mb-0">Export Features:</h4>
+            <Button 
+              onClick={handleExportFeaturesAsJSON} 
+              variant="outline"
+              size="sm"
+              disabled={isLoadingFeatures || isLoadingDevPlan || features.length === 0}
+            >
+              <FileJson className="mr-2 h-4 w-4" /> JSON
+            </Button>
+            <Button 
+              onClick={handleExportFeaturesAsMarkdown} 
+              variant="outline"
+              size="sm"
+              disabled={isLoadingFeatures || isLoadingDevPlan || features.length === 0}
+            >
+              <FileText className="mr-2 h-4 w-4" /> Markdown
+            </Button>
+          </div>
           
           <div className="mt-10 text-center">
             <Button 
@@ -187,7 +264,7 @@ export default function FeatureForm() {
       )}
 
       {devPlan && !isLoadingDevPlan && !devPlanError && (
-        <Card className="w-full shadow-xl animate-in fade-in-0 slide-in-from-bottom-5">
+        <Card className="w-full shadow-xl animate-in fade-in-0 slide-in-from-bottom-5 mb-12">
           <CardHeader className="pb-4">
             <CardTitle className="text-2xl sm:text-3xl font-bold text-center text-foreground">
               Development Plan: {devPlan.projectName}
@@ -245,8 +322,28 @@ export default function FeatureForm() {
               )}
             </div>
           </CardContent>
+          <CardFooter className="flex-col sm:flex-row justify-center items-center gap-4 pt-4 border-t border-border">
+            <h4 className="text-md font-medium text-muted-foreground mb-2 sm:mb-0">Export Plan:</h4>
+            <Button 
+              onClick={handleExportDevPlanAsJSON} 
+              variant="outline"
+              size="sm"
+              disabled={isLoadingFeatures || isLoadingDevPlan || !devPlan}
+            >
+              <FileJson className="mr-2 h-4 w-4" /> JSON
+            </Button>
+            <Button 
+              onClick={handleExportDevPlanAsMarkdown} 
+              variant="outline"
+              size="sm"
+              disabled={isLoadingFeatures || isLoadingDevPlan || !devPlan}
+            >
+              <FileText className="mr-2 h-4 w-4" /> Markdown
+            </Button>
+          </CardFooter>
         </Card>
       )}
     </div>
   );
 }
+
