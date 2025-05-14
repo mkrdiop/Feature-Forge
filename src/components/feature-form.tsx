@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { ChangeEvent, FormEvent } from 'react';
@@ -7,12 +8,12 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Loader2, AlertTriangle, Info } from 'lucide-react';
 import { suggestFeatures } from '@/ai/flows/suggest-features';
-import type { SuggestFeaturesOutput } from '@/ai/flows/suggest-features';
+import type { SuggestFeaturesOutput, FeatureDetail } from '@/ai/flows/suggest-features';
 import FeatureCard from '@/components/feature-card';
 
 export default function FeatureForm() {
   const [appDescription, setAppDescription] = useState<string>('');
-  const [features, setFeatures] = useState<string[]>([]);
+  const [features, setFeatures] = useState<FeatureDetail[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [showInitialMessage, setShowInitialMessage] = useState<boolean>(true);
@@ -44,7 +45,6 @@ export default function FeatureForm() {
     }
   };
 
-  // Effect to handle client-side only logic if needed, e.g. focus
   useEffect(() => {
     // Placeholder for any client-side specific initializations
   }, []);
@@ -111,8 +111,8 @@ export default function FeatureForm() {
         <div>
           <h3 className="text-2xl font-semibold mb-6 text-center text-foreground">Suggested Features</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {features.map((feature, index) => (
-              <FeatureCard feature={feature} index={index} key={index} />
+            {features.map((featureItem, index) => (
+              <FeatureCard feature={featureItem} index={index} key={index} />
             ))}
           </div>
         </div>
