@@ -10,7 +10,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { 
   Loader2, AlertTriangle, Info, CalendarDays, Lightbulb, FileJson, FileText, 
   Download, Sparkles, Cpu, Users, UserCircle, Target, Activity, ThumbsUp, ThumbsDown, 
-  Briefcase, Brain, DollarSign, TrendingUp, HelpCircle, AlertCircle, SearchCheck, BookOpen, AlignLeft
+  Briefcase, Brain, DollarSign, TrendingUp, HelpCircle, AlertCircle, SearchCheck, BookOpen, 
+  AlignLeft, FileSpreadsheet, Network, ShoppingCart, Users2, BarChart3, KeyRound, HandCoins, Package, AlertOctagon
 } from 'lucide-react';
 
 import { suggestFeatures } from '@/ai/flows/suggest-features';
@@ -23,8 +24,10 @@ import { suggestUserPersonas } from '@/ai/flows/suggest-user-personas';
 import type { SuggestUserPersonasOutput, UserPersona } from '@/ai/flows/suggest-user-personas';
 import { suggestMonetizationStrategies } from '@/ai/flows/suggest-monetization-strategies';
 import type { SuggestMonetizationStrategiesOutput, MonetizationStrategy } from '@/ai/flows/suggest-monetization-strategies';
-import { suggestProblemSolutionFit } from '@/ai/flows/suggest-problem-solution-fit'; // New import
-import type { SuggestProblemSolutionFitOutput } from '@/ai/flows/suggest-problem-solution-fit'; // New import
+import { suggestProblemSolutionFit } from '@/ai/flows/suggest-problem-solution-fit';
+import type { SuggestProblemSolutionFitOutput } from '@/ai/flows/suggest-problem-solution-fit';
+import { suggestLeanCanvas } from '@/ai/flows/suggest-lean-canvas'; // New import
+import type { SuggestLeanCanvasOutput } from '@/ai/flows/suggest-lean-canvas'; // New import
 
 
 import FeatureCard from '@/components/feature-card';
@@ -86,6 +89,10 @@ export default function FeatureForm() {
   const [isLoadingProblemSolutionFit, setIsLoadingProblemSolutionFit] = useState<boolean>(false);
   const [problemSolutionFitError, setProblemSolutionFitError] = useState<string | null>(null);
 
+  const [leanCanvasData, setLeanCanvasData] = useState<SuggestLeanCanvasOutput | null>(null);
+  const [isLoadingLeanCanvas, setIsLoadingLeanCanvas] = useState<boolean>(false);
+  const [leanCanvasError, setLeanCanvasError] = useState<string | null>(null);
+
 
   const sanitizeFilename = (name: string) => {
     if (!name) return 'app-idea';
@@ -126,6 +133,8 @@ export default function FeatureForm() {
     setMonetizationError(null);
     setProblemSolutionFitAnalysis(null);
     setProblemSolutionFitError(null);
+    setLeanCanvasData(null);
+    setLeanCanvasError(null);
 
 
     try {
@@ -253,18 +262,38 @@ export default function FeatureForm() {
     }
   };
 
+  const handleGenerateLeanCanvas = async () => {
+    if (features.length === 0 || !appDescription) {
+      setLeanCanvasError("Please generate features first and ensure an app description is provided.");
+      return;
+    }
+    setIsLoadingLeanCanvas(true);
+    setLeanCanvasError(null);
+    setLeanCanvasData(null);
+
+    try {
+      const result: SuggestLeanCanvasOutput = await suggestLeanCanvas({ appDescription, features });
+      setLeanCanvasData(result);
+    } catch (e) {
+      console.error(e);
+      setLeanCanvasError("An error occurred while generating the Lean Canvas. Please try again.");
+    } finally {
+      setIsLoadingLeanCanvas(false);
+    }
+  };
+
 
   // Export Features
   const handleExportFeaturesAsJSON = () => {
     if (!features.length) return;
-    const projectName = sanitizeFilename(devPlan?.projectName || aiDevPlan?.projectName || 'app');
+    const projectName = sanitizeFilename(leanCanvasData ? 'app-from-canvas' : devPlan?.projectName || aiDevPlan?.projectName || 'app');
     const jsonData = JSON.stringify(features, null, 2);
     downloadFile(`${projectName}-features.json`, jsonData, 'application/json');
   };
 
   const handleExportFeaturesAsMarkdown = () => {
     if (!features.length) return;
-    const projectName = sanitizeFilename(devPlan?.projectName || aiDevPlan?.projectName || 'app');
+    const projectName = sanitizeFilename(leanCanvasData ? 'app-from-canvas' : devPlan?.projectName || aiDevPlan?.projectName || 'app');
     let mdData = `# Suggested Features for "${appDescription.substring(0, 50)}${appDescription.length > 50 ? '...' : ''}"\n\n`;
     mdData += `Based on your description: "${appDescription}"\n\n---\n\n`;
     features.forEach(feature => {
@@ -279,14 +308,14 @@ export default function FeatureForm() {
   // Export User Personas
   const handleExportPersonasAsJSON = () => {
     if (!userPersonas.length) return;
-    const projectName = sanitizeFilename(devPlan?.projectName || aiDevPlan?.projectName || 'app');
+    const projectName = sanitizeFilename(leanCanvasData ? 'app-from-canvas' : devPlan?.projectName || aiDevPlan?.projectName || 'app');
     const jsonData = JSON.stringify(userPersonas, null, 2);
     downloadFile(`${projectName}-user-personas.json`, jsonData, 'application/json');
   };
 
   const handleExportPersonasAsMarkdown = () => {
     if (!userPersonas.length) return;
-    const projectName = sanitizeFilename(devPlan?.projectName || aiDevPlan?.projectName || 'app');
+    const projectName = sanitizeFilename(leanCanvasData ? 'app-from-canvas' : devPlan?.projectName || aiDevPlan?.projectName || 'app');
     let mdData = `# User Personas for "${appDescription.substring(0, 50)}${appDescription.length > 50 ? '...' : ''}"\n\n`;
     mdData += `Based on your description: "${appDescription}"\n\n---\n\n`;
     userPersonas.forEach(persona => {
@@ -370,14 +399,14 @@ export default function FeatureForm() {
   // Export Monetization Strategies
   const handleExportMonetizationAsJSON = () => {
     if (!monetizationStrategies.length) return;
-    const projectName = sanitizeFilename(devPlan?.projectName || aiDevPlan?.projectName || 'app');
+    const projectName = sanitizeFilename(leanCanvasData ? 'app-from-canvas' : devPlan?.projectName || aiDevPlan?.projectName || 'app');
     const jsonData = JSON.stringify(monetizationStrategies, null, 2);
     downloadFile(`${projectName}-monetization-strategies.json`, jsonData, 'application/json');
   };
 
   const handleExportMonetizationAsMarkdown = () => {
     if (!monetizationStrategies.length) return;
-    const projectName = sanitizeFilename(devPlan?.projectName || aiDevPlan?.projectName || 'app');
+    const projectName = sanitizeFilename(leanCanvasData ? 'app-from-canvas' : devPlan?.projectName || aiDevPlan?.projectName || 'app');
     let mdData = `# Monetization Strategies for "${appDescription.substring(0, 50)}${appDescription.length > 50 ? '...' : ''}"\n\n`;
     mdData += `Based on your app description and features.\n\n---\n\n`;
     monetizationStrategies.forEach(strategy => {
@@ -393,14 +422,14 @@ export default function FeatureForm() {
   // Export Problem/Solution Fit Analysis
   const handleExportProblemSolutionFitAsJSON = () => {
     if (!problemSolutionFitAnalysis) return;
-    const projectName = sanitizeFilename(devPlan?.projectName || aiDevPlan?.projectName || 'app');
+    const projectName = sanitizeFilename(leanCanvasData ? 'app-from-canvas' : devPlan?.projectName || aiDevPlan?.projectName || 'app');
     const jsonData = JSON.stringify(problemSolutionFitAnalysis, null, 2);
     downloadFile(`${projectName}-problem-solution-fit.json`, jsonData, 'application/json');
   };
 
   const handleExportProblemSolutionFitAsMarkdown = () => {
     if (!problemSolutionFitAnalysis) return;
-    const projectName = sanitizeFilename(devPlan?.projectName || aiDevPlan?.projectName || 'app');
+    const projectName = sanitizeFilename(leanCanvasData ? 'app-from-canvas' : devPlan?.projectName || aiDevPlan?.projectName || 'app');
     let mdData = `# Problem/Solution Fit Analysis for "${appDescription.substring(0, 50)}${appDescription.length > 50 ? '...' : ''}"\n\n`;
     mdData += `Based on your app description: "${appDescription}"\n\n---\n\n`;
     mdData += `## Identified Problem\n${problemSolutionFitAnalysis.identifiedProblem}\n\n`;
@@ -414,12 +443,36 @@ export default function FeatureForm() {
     downloadFile(`${projectName}-problem-solution-fit.md`, mdData, 'text/markdown');
   };
 
+  // Export Lean Canvas
+  const handleExportLeanCanvasAsJSON = () => {
+    if (!leanCanvasData) return;
+    const projectName = sanitizeFilename(devPlan?.projectName || aiDevPlan?.projectName || 'app-lean-canvas');
+    const jsonData = JSON.stringify(leanCanvasData, null, 2);
+    downloadFile(`${projectName}-lean-canvas.json`, jsonData, 'application/json');
+  };
+
+  const handleExportLeanCanvasAsMarkdown = () => {
+    if (!leanCanvasData) return;
+    const projectName = sanitizeFilename(devPlan?.projectName || aiDevPlan?.projectName || 'app-lean-canvas');
+    let mdData = `# Lean Canvas: ${appDescription.substring(0,50)}${appDescription.length > 50 ? '...' : ''}\n\n`;
+    mdData += `## Problem\n${leanCanvasData.problem.map(p => `- ${p}`).join('\n')}\n\n`;
+    mdData += `## Solution\n${leanCanvasData.solution.map(s => `- ${s}`).join('\n')}\n\n`;
+    mdData += `## Key Metrics\n${leanCanvasData.keyMetrics.map(km => `- ${km}`).join('\n')}\n\n`;
+    mdData += `## Unique Value Proposition\n${leanCanvasData.uniqueValueProposition}\n\n`;
+    mdData += `## Unfair Advantage\n${leanCanvasData.unfairAdvantage.map(ua => `- ${ua}`).join('\n')}\n\n`;
+    mdData += `## Channels\n${leanCanvasData.channels.map(c => `- ${c}`).join('\n')}\n\n`;
+    mdData += `## Customer Segments\n${leanCanvasData.customerSegments.map(cs => `- ${cs}`).join('\n')}\n\n`;
+    mdData += `## Cost Structure\n${leanCanvasData.costStructure.map(cs => `- ${cs}`).join('\n')}\n\n`;
+    mdData += `## Revenue Streams\n${leanCanvasData.revenueStreams.map(rs => `- ${rs}`).join('\n')}\n`;
+    downloadFile(`${projectName}-lean-canvas.md`, mdData, 'text/markdown');
+  };
+
 
   useEffect(() => {
     // Placeholder for any client-side specific initializations
   }, []);
 
-  const anyLoading = isLoadingFeatures || isLoadingDevPlan || isLoadingAiDevPlan || isLoadingPersonas || isLoadingMonetization || isLoadingProblemSolutionFit;
+  const anyLoading = isLoadingFeatures || isLoadingDevPlan || isLoadingAiDevPlan || isLoadingPersonas || isLoadingMonetization || isLoadingProblemSolutionFit || isLoadingLeanCanvas;
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -578,6 +631,24 @@ export default function FeatureForm() {
                 <>
                   <SearchCheck className="mr-2 h-5 w-5" />
                   Analyze Problem/Solution Fit
+                </>
+              )}
+            </Button>
+            <Button 
+              onClick={handleGenerateLeanCanvas} 
+              disabled={anyLoading || features.length === 0}
+              className="w-full sm:w-auto bg-orange-500 text-white hover:bg-orange-600"
+              size="lg"
+            >
+              {isLoadingLeanCanvas ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Building Canvas...
+                </>
+              ) : (
+                <>
+                  <FileSpreadsheet className="mr-2 h-5 w-5" />
+                  Generate Lean Canvas
                 </>
               )}
             </Button>
@@ -859,6 +930,122 @@ export default function FeatureForm() {
         </Card>
       )}
 
+      {leanCanvasError && (
+        <Alert variant="destructive" className="mb-8 animate-in fade-in-0">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Lean Canvas Generation Error</AlertTitle>
+          <AlertDescription>{leanCanvasError}</AlertDescription>
+        </Alert>
+      )}
+
+      {isLoadingLeanCanvas && (
+        <div className="text-center py-10">
+          <Loader2 className="h-12 w-12 animate-spin text-orange-500 mx-auto" />
+          <p className="mt-4 text-muted-foreground">Building your Lean Canvas...</p>
+        </div>
+      )}
+
+      {leanCanvasData && !isLoadingLeanCanvas && (
+        <Card className="w-full shadow-xl animate-in fade-in-0 slide-in-from-bottom-5 mb-12 border-orange-500/70">
+          <CardHeader className="pb-4 bg-orange-500/10">
+            <CardTitle className="text-2xl sm:text-3xl font-bold text-center text-orange-700 flex items-center justify-center gap-2">
+              <FileSpreadsheet className="h-7 w-7" /> Lean Canvas
+            </CardTitle>
+            <p className="text-center text-muted-foreground pt-1">A strategic blueprint for your app idea.</p>
+          </CardHeader>
+          <CardContent className="px-4 sm:px-6 py-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Row 1 */}
+              <LeanCanvasSection 
+                title="Problem" 
+                items={leanCanvasData.problem} 
+                icon={<AlertOctagon className="h-5 w-5 text-red-600" />} 
+                className="md:col-span-1 border-red-500/30"
+              />
+              <LeanCanvasSection 
+                title="Solution" 
+                items={leanCanvasData.solution} 
+                icon={<Lightbulb className="h-5 w-5 text-green-600" />} 
+                className="md:col-span-1 border-green-500/30"
+              />
+              <LeanCanvasSection 
+                title="Key Metrics" 
+                items={leanCanvasData.keyMetrics} 
+                icon={<BarChart3 className="h-5 w-5 text-blue-600" />} 
+                className="md:col-span-1 border-blue-500/30"
+              />
+              {/* Row 2 */}
+              <LeanCanvasSection 
+                title="Unique Value Proposition" 
+                content={leanCanvasData.uniqueValueProposition}
+                icon={<Sparkles className="h-5 w-5 text-yellow-500" />} 
+                className="md:col-span-3 bg-muted/20 p-4 rounded-lg border-yellow-500/30"
+                titleClassName="text-yellow-700"
+              />
+              {/* Row 3 */}
+               <LeanCanvasSection 
+                title="Unfair Advantage" 
+                items={leanCanvasData.unfairAdvantage} 
+                icon={<KeyRound className="h-5 w-5 text-purple-600" />} 
+                className="md:col-span-1 border-purple-500/30"
+              />
+              <LeanCanvasSection 
+                title="Channels" 
+                items={leanCanvasData.channels} 
+                icon={<Network className="h-5 w-5 text-teal-600" />} 
+                className="md:col-span-1 border-teal-500/30"
+              />
+               <LeanCanvasSection 
+                title="Customer Segments" 
+                items={leanCanvasData.customerSegments} 
+                icon={<Users2 className="h-5 w-5 text-pink-600" />} 
+                className="md:col-span-1 border-pink-500/30"
+              />
+              {/* Row 4 - Spanning full width, or split if preferred */}
+              <LeanCanvasSection 
+                title="Cost Structure" 
+                items={leanCanvasData.costStructure} 
+                icon={<ShoppingCart className="h-5 w-5 text-gray-600" />} 
+                className="md:col-span-3 md:grid md:grid-cols-2 gap-4"
+                innerClassName="border-gray-500/30"
+                isWideContainer={true}
+
+              />
+              <LeanCanvasSection 
+                title="Revenue Streams" 
+                items={leanCanvasData.revenueStreams} 
+                icon={<HandCoins className="h-5 w-5 text-lime-600" />} 
+                className="md:col-span-3 md:grid md:grid-cols-2 gap-4"
+                innerClassName="border-lime-500/30"
+                isWideContainer={true}
+              />
+            </div>
+          </CardContent>
+           <CardFooter className="flex-col sm:flex-row justify-center items-center gap-4 pt-4 border-t border-border">
+            <h4 className="text-md font-medium text-muted-foreground mb-2 sm:mb-0">Export Lean Canvas:</h4>
+            <Button 
+              onClick={handleExportLeanCanvasAsJSON} 
+              variant="outline"
+              size="sm"
+              disabled={anyLoading || !leanCanvasData}
+              className="border-orange-500 text-orange-600 hover:bg-orange-500/10 hover:text-orange-700"
+            >
+              <FileJson className="mr-2 h-4 w-4" /> JSON
+            </Button>
+            <Button 
+              onClick={handleExportLeanCanvasAsMarkdown} 
+              variant="outline"
+              size="sm"
+              disabled={anyLoading || !leanCanvasData}
+              className="border-orange-500 text-orange-600 hover:bg-orange-500/10 hover:text-orange-700"
+            >
+              <FileText className="mr-2 h-4 w-4" /> Markdown
+            </Button>
+          </CardFooter>
+        </Card>
+      )}
+
+
       {devPlanError && (
         <Alert variant="destructive" className="mb-8 animate-in fade-in-0">
           <AlertTriangle className="h-4 w-4" />
@@ -1101,4 +1288,47 @@ export default function FeatureForm() {
       )}
     </div>
   );
+}
+
+interface LeanCanvasSectionProps {
+  title: string;
+  items?: string[];
+  content?: string;
+  icon: React.ReactNode;
+  className?: string;
+  titleClassName?: string;
+  innerClassName?: string;
+  isWideContainer?: boolean;
+}
+
+function LeanCanvasSection({ title, items, content, icon, className, titleClassName, innerClassName, isWideContainer }: LeanCanvasSectionProps) {
+  const sectionBaseClass = "border p-3 rounded-md shadow-sm flex flex-col min-h-[150px] bg-card";
+  const sectionClass = isWideContainer && innerClassName ? `${sectionBaseClass} ${innerClassName}` : `${sectionBaseClass} ${className}`;
+  
+  const body = (
+    <div className={sectionClass}>
+      <h5 className={`text-md font-semibold text-foreground mb-2 flex items-center gap-2 ${titleClassName}`}>
+        {icon} {title}
+      </h5>
+      {items && items.length > 0 && (
+        <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground pl-2 flex-grow">
+          {items.map((item, index) => <li key={index}>{item}</li>)}
+        </ul>
+      )}
+      {content && (
+        <p className="text-sm text-muted-foreground flex-grow">{content}</p>
+      )}
+      {(!items || items.length === 0) && !content && (
+        <p className="text-sm text-muted-foreground flex-grow italic">Not specified.</p>
+      )}
+    </div>
+  );
+
+  if (isWideContainer) {
+    // If it's a wide container, it might be part of a 2-column layout within the larger 3-column grid
+    // So we directly return the body that might take md:col-span-1 or md:col-span-2 depending on parent
+    return body;
+  }
+  
+  return <div className={className}>{body}</div>;
 }

@@ -20,3 +20,17 @@ export const MonetizationStrategySchema = z.object({
   keyConsiderations: z.array(z.string()).describe("A list of 2-3 key factors or questions the developer should consider if they pursue this strategy (e.g., 'Pricing tiers', 'Ad placement strategy', 'Value proposition for premium features').")
 });
 export type MonetizationStrategy = z.infer<typeof MonetizationStrategySchema>;
+
+export const LeanCanvasSchema = z.object({
+  problem: z.array(z.string()).min(1).max(3).describe("Top 1-3 problems the application solves for its users."),
+  solution: z.array(z.string()).min(1).max(3).describe("Key features or aspects of the application that directly address the identified problems."),
+  keyMetrics: z.array(z.string()).min(1).max(3).describe("The key activities or numbers to measure that indicate how well the business is doing."),
+  uniqueValueProposition: z.string().describe("A single, clear, compelling message that states why the application is different and worth using. Include a high-level concept or X for Y analogy if applicable."),
+  unfairAdvantage: z.array(z.string()).min(1).max(3).describe("Something that cannot be easily copied or bought by competitors (e.g., insider information, a strong community, a unique patent)."),
+  channels: z.array(z.string()).min(1).max(3).describe("The primary pathways to reach and acquire target customers (e.g., social media, app stores, content marketing)."),
+  customerSegments: z.array(z.string()).min(1).max(3).describe("The specific target groups of users or customers the application aims to serve. List early adopters if relevant."),
+  costStructure: z.array(z.string()).min(1).max(3).describe("The major fixed and variable costs associated with running the application (e.g., development, marketing, hosting, salaries)."),
+  revenueStreams: z.array(z.string()).min(1).max(3).describe("The primary ways the application will generate income (e.g., subscriptions, advertising, one-time sales, data licensing)."),
+});
+export type LeanCanvasOutput = z.infer<typeof LeanCanvasSchema>;
+
