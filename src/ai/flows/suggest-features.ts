@@ -7,11 +7,12 @@
  * - suggestFeatures - A function that takes an app description and returns a list of detailed feature suggestions.
  * - SuggestFeaturesInput - The input type for the suggestFeatures function.
  * - SuggestFeaturesOutput - The return type for the suggestFeatures function.
- * - FeatureDetail - The type for individual feature details.
  */
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import type { FeatureDetail } from '@/ai/types'; // Import FeatureDetail type
+import { FeatureDetailSchema } from '@/ai/types'; // Import FeatureDetailSchema
 
 const SuggestFeaturesInputSchema = z.object({
   appDescription: z
@@ -20,13 +21,7 @@ const SuggestFeaturesInputSchema = z.object({
 });
 export type SuggestFeaturesInput = z.infer<typeof SuggestFeaturesInputSchema>;
 
-const FeatureDetailSchema = z.object({
-  name: z.string().describe('The concise name of the feature (e.g., "User Authentication", "AI Image Generation").'),
-  description: z.string().describe('A brief (1-2 sentences) explanation of what the feature entails and its benefit.'),
-  category: z.string().describe('A category for the feature (e.g., "Core Functionality", "User Interface", "AI-Powered", "Data & Analytics", "Monetization", "Security", "User Engagement").'),
-  complexity: z.enum(['Low', 'Medium', 'High']).describe('An estimated complexity level (Low, Medium, or High) for implementing the feature.'),
-});
-export type FeatureDetail = z.infer<typeof FeatureDetailSchema>;
+// FeatureDetailSchema and FeatureDetail are now imported from '@/ai/types'
 
 const SuggestFeaturesOutputSchema = z.object({
   features: z
