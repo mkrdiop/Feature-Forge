@@ -11,3 +11,4 @@ export const FeatureDetailSchema = z.object({
   complexity: z.enum(['Low', 'Medium', 'High']).describe('An estimated complexity level (Low, Medium, or High) for implementing the feature.'),
 });
 export type FeatureDetail = z.infer<typeof FeatureDetailSchema>;
+

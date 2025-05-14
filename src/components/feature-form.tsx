@@ -7,17 +7,24 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Loader2, AlertTriangle, Info, CalendarDays, Lightbulb, FileJson, FileText, Download, Sparkles, Cpu } from 'lucide-react'; // Added Sparkles, Cpu
+import { 
+  Loader2, AlertTriangle, Info, CalendarDays, Lightbulb, FileJson, FileText, 
+  Download, Sparkles, Cpu, Users, UserCircle, Target, Activity, ThumbsUp, ThumbsDown, Briefcase, Brain 
+} from 'lucide-react';
 import { suggestFeatures } from '@/ai/flows/suggest-features';
 import type { SuggestFeaturesOutput, FeatureDetail } from '@/ai/flows/suggest-features';
 import { suggestDevPlan } from '@/ai/flows/suggest-dev-plan';
 import type { SuggestDevPlanOutput, DevPlanPhase as OriginalDevPlanPhase } from '@/ai/flows/suggest-dev-plan';
-import { suggestAiAcceleratedDevPlan } from '@/ai/flows/suggest-ai-accelerated-dev-plan'; // New import
-import type { SuggestAiAcceleratedDevPlanOutput, AiAcceleratedDevPlanPhase as OriginalAiDevPlanPhase } from '@/ai/flows/suggest-ai-accelerated-dev-plan'; // New import
+import { suggestAiAcceleratedDevPlan } from '@/ai/flows/suggest-ai-accelerated-dev-plan';
+import type { SuggestAiAcceleratedDevPlanOutput, AiAcceleratedDevPlanPhase as OriginalAiDevPlanPhase } from '@/ai/flows/suggest-ai-accelerated-dev-plan';
+import { suggestUserPersonas } from '@/ai/flows/suggest-user-personas'; // New import for personas
+import type { SuggestUserPersonasOutput, UserPersona } from '@/ai/flows/suggest-user-personas'; // New import for persona types
 
 import FeatureCard from '@/components/feature-card';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from './ui/card';
 import { Separator } from './ui/separator';
+import { Badge } from './ui/badge';
+
 
 // Define local type for DevPlanPhase including genkitPromptSuggestions
 interface GenkitPromptSuggestion {
@@ -60,8 +67,13 @@ export default function FeatureForm() {
   const [isLoadingAiDevPlan, setIsLoadingAiDevPlan] = useState<boolean>(false);
   const [aiDevPlanError, setAiDevPlanError] = useState<string | null>(null);
 
+  const [userPersonas, setUserPersonas] = useState<UserPersona[]>([]);
+  const [isLoadingPersonas, setIsLoadingPersonas] = useState<boolean>(false);
+  const [personasError, setPersonasError] = useState<string | null>(null);
+
 
   const sanitizeFilename = (name: string) => {
+    if (!name) return 'app-idea';
     return name.replace(/\s+/g, '-').toLowerCase().replace(/[^a-z0-9-]/g, '');
   }
 
@@ -92,6 +104,8 @@ export default function FeatureForm() {
     setDevPlanError(null);
     setAiDevPlan(null);
     setAiDevPlanError(null);
+    setUserPersonas([]);
+    setPersonasError(null);
 
 
     try {
@@ -109,6 +123,30 @@ export default function FeatureForm() {
     }
   };
 
+  const handleGenerateUserPersonas = async () => {
+    if (!appDescription) {
+      setPersonasError("Please provide an app description first.");
+      return;
+    }
+    setIsLoadingPersonas(true);
+    setPersonasError(null);
+    setUserPersonas([]);
+
+    try {
+      const result: SuggestUserPersonasOutput = await suggestUserPersonas({ appDescription });
+      if (result.personas && result.personas.length > 0) {
+        setUserPersonas(result.personas);
+      } else {
+        setPersonasError("No user personas were generated. Try refining your app description.");
+      }
+    } catch (e) {
+      console.error(e);
+      setPersonasError("An error occurred while generating user personas. Please try again.");
+    } finally {
+      setIsLoadingPersonas(false);
+    }
+  };
+
   const handleGenerateDevPlan = async () => {
     if (features.length === 0 || !appDescription) {
       setDevPlanError("Please generate features first and ensure an app description is provided.");
@@ -117,7 +155,7 @@ export default function FeatureForm() {
     setIsLoadingDevPlan(true);
     setDevPlanError(null);
     setDevPlan(null);
-    setAiDevPlan(null); // Reset AI dev plan if regenerating standard plan
+    setAiDevPlan(null); 
     setAiDevPlanError(null);
 
     try {
@@ -172,6 +210,32 @@ export default function FeatureForm() {
       mdData += `**Complexity:** ${feature.complexity}\n\n---\n\n`;
     });
     downloadFile(`${projectName}-features.md`, mdData, 'text/markdown');
+  };
+
+  // Export User Personas
+  const handleExportPersonasAsJSON = () => {
+    if (!userPersonas.length) return;
+    const projectName = sanitizeFilename(devPlan?.projectName || aiDevPlan?.projectName || 'app');
+    const jsonData = JSON.stringify(userPersonas, null, 2);
+    downloadFile(`${projectName}-user-personas.json`, jsonData, 'application/json');
+  };
+
+  const handleExportPersonasAsMarkdown = () => {
+    if (!userPersonas.length) return;
+    const projectName = sanitizeFilename(devPlan?.projectName || aiDevPlan?.projectName || 'app');
+    let mdData = `# User Personas for "${appDescription.substring(0, 50)}${appDescription.length > 50 ? '...' : ''}"\n\n`;
+    mdData += `Based on your description: "${appDescription}"\n\n---\n\n`;
+    userPersonas.forEach(persona => {
+      mdData += `## Persona: ${persona.personaName}\n\n`;
+      mdData += `**Age Range:** ${persona.ageRange}\n`;
+      mdData += `**Occupation:** ${persona.occupation}\n`;
+      mdData += `**Tech Savviness:** ${persona.techSavviness}\n\n`;
+      mdData += `### Bio:\n${persona.briefBio}\n\n`;
+      mdData += `### Key Goals:\n${persona.keyGoals.map(g => `- ${g}`).join('\n')}\n\n`;
+      mdData += `### Pain Points:\n${persona.painPoints.map(p => `- ${p}`).join('\n')}\n\n`;
+      mdData += `### Motivations for Using App:\n${persona.motivationsForUsingApp.map(m => `- ${m}`).join('\n')}\n\n---\n\n`;
+    });
+    downloadFile(`${projectName}-user-personas.md`, mdData, 'text/markdown');
   };
 
   // Export Standard Dev Plan
@@ -244,10 +308,10 @@ export default function FeatureForm() {
     // Placeholder for any client-side specific initializations
   }, []);
 
-  const anyLoading = isLoadingFeatures || isLoadingDevPlan || isLoadingAiDevPlan;
+  const anyLoading = isLoadingFeatures || isLoadingDevPlan || isLoadingAiDevPlan || isLoadingPersonas;
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className="max-w-4xl mx-auto"> {/* Increased max-width for personas */}
       <form onSubmit={handleFeatureSubmit} className="space-y-6 mb-12">
         <div>
           <Textarea
@@ -334,6 +398,24 @@ export default function FeatureForm() {
           </div>
           
           <div className="mt-10 text-center">
+             <Button 
+              onClick={handleGenerateUserPersonas} 
+              disabled={anyLoading || !appDescription.trim()}
+              className="w-full sm:w-auto bg-purple-600 text-white hover:bg-purple-700 mr-0 sm:mr-4 mb-4 sm:mb-0" // Adjusted margin for stacking
+              size="lg"
+            >
+              {isLoadingPersonas ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Creating Personas...
+                </>
+              ) : (
+                <>
+                  <Users className="mr-2 h-5 w-5" />
+                  Generate User Personas
+                </>
+              )}
+            </Button>
             <Button 
               onClick={handleGenerateDevPlan} 
               disabled={anyLoading || features.length === 0}
@@ -355,6 +437,107 @@ export default function FeatureForm() {
           </div>
         </div>
       )}
+
+      {personasError && (
+        <Alert variant="destructive" className="mb-8 animate-in fade-in-0">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>User Persona Generation Error</AlertTitle>
+          <AlertDescription>{personasError}</AlertDescription>
+        </Alert>
+      )}
+
+      {isLoadingPersonas && (
+        <div className="text-center py-10">
+          <Loader2 className="h-12 w-12 animate-spin text-purple-600 mx-auto" />
+          <p className="mt-4 text-muted-foreground">Crafting your user personas...</p>
+        </div>
+      )}
+
+      {userPersonas.length > 0 && !isLoadingPersonas && (
+        <div className="mb-12">
+          <h3 className="text-2xl font-semibold mb-6 text-center text-foreground">Generated User Personas</h3>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {userPersonas.map((persona, index) => (
+              <Card 
+                key={index} 
+                className="shadow-xl animate-in fade-in-0 slide-in-from-bottom-5 flex flex-col border-purple-500/50"
+                style={{ animationDelay: `${index * 150}ms`}}
+              >
+                <CardHeader className="bg-purple-500/10 pb-4">
+                  <CardTitle className="text-xl sm:text-2xl font-bold text-purple-700 flex items-center gap-2">
+                    <UserCircle className="h-7 w-7" /> {persona.personaName}
+                  </CardTitle>
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    <Badge variant="secondary" className="text-xs">Age: {persona.ageRange}</Badge>
+                    <Badge variant="secondary" className="text-xs flex items-center gap-1">
+                      <Briefcase className="h-3 w-3" /> {persona.occupation}
+                    </Badge>
+                     <Badge variant="secondary" className="text-xs flex items-center gap-1">
+                       <Brain className="h-3 w-3" /> Tech: {persona.techSavviness}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4 px-4 sm:px-6 py-5 flex-grow">
+                  <div>
+                    <h4 className="text-md font-semibold mb-1 text-foreground">Bio:</h4>
+                    <p className="text-sm text-muted-foreground whitespace-pre-line">{persona.briefBio}</p>
+                  </div>
+                  <Separator />
+                  <div>
+                    <h4 className="text-md font-semibold mb-2 text-foreground flex items-center gap-1.5">
+                      <Target className="h-4 w-4 text-green-600"/> Key Goals:
+                    </h4>
+                    <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground pl-2">
+                      {persona.keyGoals.map((goal, i) => <li key={i}>{goal}</li>)}
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="text-md font-semibold mb-2 text-foreground flex items-center gap-1.5">
+                      <ThumbsDown className="h-4 w-4 text-red-600"/> Pain Points:
+                    </h4>
+                    <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground pl-2">
+                      {persona.painPoints.map((painPoint, i) => <li key={i}>{painPoint}</li>)}
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="text-md font-semibold mb-2 text-foreground flex items-center gap-1.5">
+                      <ThumbsUp className="h-4 w-4 text-blue-600"/> Motivations for Using App:
+                    </h4>
+                    <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground pl-2">
+                      {persona.motivationsForUsingApp.map((motivation, i) => <li key={i}>{motivation}</li>)}
+                    </ul>
+                  </div>
+                </CardContent>
+                <CardFooter className="pt-4 border-t border-border bg-muted/30">
+                  {/* Could add persona specific actions here if needed */}
+                </CardFooter>
+              </Card>
+            ))}
+          </div>
+           <div className="mt-8 pt-6 border-t border-border flex flex-col sm:flex-row justify-center items-center gap-4">
+             <h4 className="text-md font-medium text-muted-foreground mb-2 sm:mb-0">Export Personas:</h4>
+            <Button 
+              onClick={handleExportPersonasAsJSON} 
+              variant="outline"
+              size="sm"
+              disabled={anyLoading || userPersonas.length === 0}
+              className="border-purple-500 text-purple-600 hover:bg-purple-500/10 hover:text-purple-700"
+            >
+              <FileJson className="mr-2 h-4 w-4" /> JSON
+            </Button>
+            <Button 
+              onClick={handleExportPersonasAsMarkdown} 
+              variant="outline"
+              size="sm"
+              disabled={anyLoading || userPersonas.length === 0}
+              className="border-purple-500 text-purple-600 hover:bg-purple-500/10 hover:text-purple-700"
+            >
+              <FileText className="mr-2 h-4 w-4" /> Markdown
+            </Button>
+          </div>
+        </div>
+      )}
+
 
       {devPlanError && (
         <Alert variant="destructive" className="mb-8 animate-in fade-in-0">
@@ -476,8 +659,8 @@ export default function FeatureForm() {
             <div className="mt-8 pt-6 border-t border-border text-center">
               <Button 
                 onClick={handleGenerateAiDevPlan} 
-                disabled={anyLoading || !devPlan} // Requires standard plan first
-                className="w-full sm:w-auto bg-green-600 text-white hover:bg-green-700" // Example: different color
+                disabled={anyLoading || !devPlan} 
+                className="w-full sm:w-auto bg-green-600 text-white hover:bg-green-700" 
                 size="lg"
               >
                 <Cpu className="mr-2 h-5 w-5" />
