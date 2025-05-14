@@ -10,7 +10,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { 
   Loader2, AlertTriangle, Info, CalendarDays, Lightbulb, FileJson, FileText, 
   Download, Sparkles, Cpu, Users, UserCircle, Target, Activity, ThumbsUp, ThumbsDown, 
-  Briefcase, Brain, DollarSign, TrendingUp, HelpCircle, AlertCircle
+  Briefcase, Brain, DollarSign, TrendingUp, HelpCircle, AlertCircle, SearchCheck, BookOpen, AlignLeft
 } from 'lucide-react';
 
 import { suggestFeatures } from '@/ai/flows/suggest-features';
@@ -21,8 +21,10 @@ import { suggestAiAcceleratedDevPlan } from '@/ai/flows/suggest-ai-accelerated-d
 import type { SuggestAiAcceleratedDevPlanOutput, AiAcceleratedDevPlanPhase as OriginalAiDevPlanPhase } from '@/ai/flows/suggest-ai-accelerated-dev-plan';
 import { suggestUserPersonas } from '@/ai/flows/suggest-user-personas';
 import type { SuggestUserPersonasOutput, UserPersona } from '@/ai/flows/suggest-user-personas';
-import { suggestMonetizationStrategies } from '@/ai/flows/suggest-monetization-strategies'; // New import
-import type { SuggestMonetizationStrategiesOutput, MonetizationStrategy } from '@/ai/flows/suggest-monetization-strategies'; // New import
+import { suggestMonetizationStrategies } from '@/ai/flows/suggest-monetization-strategies';
+import type { SuggestMonetizationStrategiesOutput, MonetizationStrategy } from '@/ai/flows/suggest-monetization-strategies';
+import { suggestProblemSolutionFit } from '@/ai/flows/suggest-problem-solution-fit'; // New import
+import type { SuggestProblemSolutionFitOutput } from '@/ai/flows/suggest-problem-solution-fit'; // New import
 
 
 import FeatureCard from '@/components/feature-card';
@@ -80,6 +82,10 @@ export default function FeatureForm() {
   const [isLoadingMonetization, setIsLoadingMonetization] = useState<boolean>(false);
   const [monetizationError, setMonetizationError] = useState<string | null>(null);
 
+  const [problemSolutionFitAnalysis, setProblemSolutionFitAnalysis] = useState<SuggestProblemSolutionFitOutput | null>(null);
+  const [isLoadingProblemSolutionFit, setIsLoadingProblemSolutionFit] = useState<boolean>(false);
+  const [problemSolutionFitError, setProblemSolutionFitError] = useState<string | null>(null);
+
 
   const sanitizeFilename = (name: string) => {
     if (!name) return 'app-idea';
@@ -109,6 +115,7 @@ export default function FeatureForm() {
     setFeaturesError(null);
     setFeatures([]);
     setShowInitialMessage(false);
+    // Reset all subsequent sections
     setDevPlan(null); 
     setDevPlanError(null);
     setAiDevPlan(null);
@@ -117,6 +124,8 @@ export default function FeatureForm() {
     setPersonasError(null);
     setMonetizationStrategies([]);
     setMonetizationError(null);
+    setProblemSolutionFitAnalysis(null);
+    setProblemSolutionFitError(null);
 
 
     try {
@@ -221,6 +230,26 @@ export default function FeatureForm() {
       setMonetizationError("An error occurred while generating monetization strategies. Please try again.");
     } finally {
       setIsLoadingMonetization(false);
+    }
+  };
+
+  const handleGenerateProblemSolutionFit = async () => {
+    if (features.length === 0 || !appDescription) {
+      setProblemSolutionFitError("Please generate features first and ensure an app description is provided.");
+      return;
+    }
+    setIsLoadingProblemSolutionFit(true);
+    setProblemSolutionFitError(null);
+    setProblemSolutionFitAnalysis(null);
+
+    try {
+      const result: SuggestProblemSolutionFitOutput = await suggestProblemSolutionFit({ appDescription, features });
+      setProblemSolutionFitAnalysis(result);
+    } catch (e) {
+      console.error(e);
+      setProblemSolutionFitError("An error occurred while generating the Problem/Solution Fit Analysis. Please try again.");
+    } finally {
+      setIsLoadingProblemSolutionFit(false);
     }
   };
 
@@ -361,11 +390,36 @@ export default function FeatureForm() {
     downloadFile(`${projectName}-monetization-strategies.md`, mdData, 'text/markdown');
   };
 
+  // Export Problem/Solution Fit Analysis
+  const handleExportProblemSolutionFitAsJSON = () => {
+    if (!problemSolutionFitAnalysis) return;
+    const projectName = sanitizeFilename(devPlan?.projectName || aiDevPlan?.projectName || 'app');
+    const jsonData = JSON.stringify(problemSolutionFitAnalysis, null, 2);
+    downloadFile(`${projectName}-problem-solution-fit.json`, jsonData, 'application/json');
+  };
+
+  const handleExportProblemSolutionFitAsMarkdown = () => {
+    if (!problemSolutionFitAnalysis) return;
+    const projectName = sanitizeFilename(devPlan?.projectName || aiDevPlan?.projectName || 'app');
+    let mdData = `# Problem/Solution Fit Analysis for "${appDescription.substring(0, 50)}${appDescription.length > 50 ? '...' : ''}"\n\n`;
+    mdData += `Based on your app description: "${appDescription}"\n\n---\n\n`;
+    mdData += `## Identified Problem\n${problemSolutionFitAnalysis.identifiedProblem}\n\n`;
+    mdData += `## Solution Overview\n${problemSolutionFitAnalysis.solutionOverview}\n\n`;
+    mdData += `## Feature Alignment Analysis\n`;
+    problemSolutionFitAnalysis.featureAlignmentAnalysis.forEach(item => {
+      mdData += `### Feature: ${item.featureName}\n`;
+      mdData += `**Alignment Note:** ${item.alignmentNote}\n\n`;
+    });
+    mdData += `## Overall Assessment\n${problemSolutionFitAnalysis.overallAssessment}\n`;
+    downloadFile(`${projectName}-problem-solution-fit.md`, mdData, 'text/markdown');
+  };
+
+
   useEffect(() => {
     // Placeholder for any client-side specific initializations
   }, []);
 
-  const anyLoading = isLoadingFeatures || isLoadingDevPlan || isLoadingAiDevPlan || isLoadingPersonas || isLoadingMonetization;
+  const anyLoading = isLoadingFeatures || isLoadingDevPlan || isLoadingAiDevPlan || isLoadingPersonas || isLoadingMonetization || isLoadingProblemSolutionFit;
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -454,7 +508,7 @@ export default function FeatureForm() {
             </Button>
           </div>
           
-          <div className="mt-10 text-center space-y-4 sm:space-y-0 sm:space-x-4">
+          <div className="mt-10 text-center space-y-4 sm:space-y-0 sm:flex sm:flex-wrap sm:justify-center sm:gap-4">
              <Button 
               onClick={handleGenerateUserPersonas} 
               disabled={anyLoading || !appDescription.trim()}
@@ -487,7 +541,7 @@ export default function FeatureForm() {
               ) : (
                 <>
                   <CalendarDays className="mr-2 h-5 w-5" />
-                  Generate Standard Dev Plan
+                  Standard Dev Plan
                 </>
               )}
             </Button>
@@ -506,6 +560,24 @@ export default function FeatureForm() {
                 <>
                   <DollarSign className="mr-2 h-5 w-5" />
                   Suggest Monetization
+                </>
+              )}
+            </Button>
+            <Button 
+              onClick={handleGenerateProblemSolutionFit} 
+              disabled={anyLoading || features.length === 0}
+              className="w-full sm:w-auto bg-blue-600 text-white hover:bg-blue-700"
+              size="lg"
+            >
+              {isLoadingProblemSolutionFit ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Analyzing Fit...
+                </>
+              ) : (
+                <>
+                  <SearchCheck className="mr-2 h-5 w-5" />
+                  Analyze Problem/Solution Fit
                 </>
               )}
             </Button>
@@ -701,6 +773,91 @@ export default function FeatureForm() {
         </Card>
       )}
 
+      {problemSolutionFitError && (
+        <Alert variant="destructive" className="mb-8 animate-in fade-in-0">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Problem/Solution Fit Analysis Error</AlertTitle>
+          <AlertDescription>{problemSolutionFitError}</AlertDescription>
+        </Alert>
+      )}
+
+      {isLoadingProblemSolutionFit && (
+        <div className="text-center py-10">
+          <Loader2 className="h-12 w-12 animate-spin text-blue-600 mx-auto" />
+          <p className="mt-4 text-muted-foreground">Analyzing problem/solution fit...</p>
+        </div>
+      )}
+
+      {problemSolutionFitAnalysis && !isLoadingProblemSolutionFit && (
+        <Card className="w-full shadow-xl animate-in fade-in-0 slide-in-from-bottom-5 mb-12 border-blue-500/70">
+          <CardHeader className="pb-4 bg-blue-500/10">
+            <CardTitle className="text-2xl sm:text-3xl font-bold text-center text-blue-700 flex items-center justify-center gap-2">
+              <SearchCheck className="h-7 w-7" /> Problem/Solution Fit Analysis
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6 px-4 sm:px-6 py-6">
+            <div>
+              <h4 className="text-xl font-semibold mb-2 text-blue-700 flex items-center gap-1.5">
+                <Target className="h-5 w-5"/> Identified Problem
+              </h4>
+              <p className="text-muted-foreground bg-muted/30 p-3 rounded-md">{problemSolutionFitAnalysis.identifiedProblem}</p>
+            </div>
+            <Separator />
+            <div>
+              <h4 className="text-xl font-semibold mb-2 text-blue-700 flex items-center gap-1.5">
+                <Lightbulb className="h-5 w-5"/> Solution Overview
+              </h4>
+              <p className="text-muted-foreground bg-muted/30 p-3 rounded-md">{problemSolutionFitAnalysis.solutionOverview}</p>
+            </div>
+            <Separator />
+            <div>
+              <h4 className="text-xl font-semibold mb-3 text-blue-700 flex items-center gap-1.5">
+                 <AlignLeft className="h-5 w-5"/> Feature Alignment Analysis
+              </h4>
+              {problemSolutionFitAnalysis.featureAlignmentAnalysis.length > 0 ? (
+                <div className="space-y-4">
+                  {problemSolutionFitAnalysis.featureAlignmentAnalysis.map((item, index) => (
+                    <div key={index} className="p-3 border border-border rounded-md bg-background shadow-sm">
+                      <h5 className="text-md font-semibold text-foreground mb-1">{item.featureName}</h5>
+                      <p className="text-sm text-muted-foreground">{item.alignmentNote}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-muted-foreground">No specific feature alignments provided by the AI.</p>
+              )}
+            </div>
+            <Separator />
+            <div>
+              <h4 className="text-xl font-semibold mb-2 text-blue-700 flex items-center gap-1.5">
+                <BookOpen className="h-5 w-5"/> Overall Assessment
+              </h4>
+              <p className="text-muted-foreground bg-muted/30 p-3 rounded-md">{problemSolutionFitAnalysis.overallAssessment}</p>
+            </div>
+          </CardContent>
+          <CardFooter className="flex-col sm:flex-row justify-center items-center gap-4 pt-4 border-t border-border">
+            <h4 className="text-md font-medium text-muted-foreground mb-2 sm:mb-0">Export Analysis:</h4>
+            <Button 
+              onClick={handleExportProblemSolutionFitAsJSON} 
+              variant="outline"
+              size="sm"
+              disabled={anyLoading || !problemSolutionFitAnalysis}
+              className="border-blue-500 text-blue-600 hover:bg-blue-500/10 hover:text-blue-700"
+            >
+              <FileJson className="mr-2 h-4 w-4" /> JSON
+            </Button>
+            <Button 
+              onClick={handleExportProblemSolutionFitAsMarkdown} 
+              variant="outline"
+              size="sm"
+              disabled={anyLoading || !problemSolutionFitAnalysis}
+              className="border-blue-500 text-blue-600 hover:bg-blue-500/10 hover:text-blue-700"
+            >
+              <FileText className="mr-2 h-4 w-4" /> Markdown
+            </Button>
+          </CardFooter>
+        </Card>
+      )}
 
       {devPlanError && (
         <Alert variant="destructive" className="mb-8 animate-in fade-in-0">
@@ -827,7 +984,7 @@ export default function FeatureForm() {
                 size="lg"
               >
                 <Cpu className="mr-2 h-5 w-5" />
-                Generate AI-Accelerated Dev Plan
+                AI-Accelerated Dev Plan
               </Button>
             </div>
           )}
