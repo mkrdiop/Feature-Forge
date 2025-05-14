@@ -12,3 +12,11 @@ export const FeatureDetailSchema = z.object({
 });
 export type FeatureDetail = z.infer<typeof FeatureDetailSchema>;
 
+export const MonetizationStrategySchema = z.object({
+  strategyName: z.string().describe("The common name of the monetization strategy (e.g., 'Subscription Model', 'Freemium', 'In-App Purchases', 'Advertising', 'One-Time Purchase')."),
+  description: z.string().describe("A brief (1-2 sentences) explanation of how this monetization strategy works."),
+  suitabilityRationale: z.string().describe("Why this strategy might be suitable for the described application, considering its features and potential user base. Be specific."),
+  potentialDrawbacks: z.string().describe("Potential challenges or downsides of implementing this strategy for this specific app."),
+  keyConsiderations: z.array(z.string()).describe("A list of 2-3 key factors or questions the developer should consider if they pursue this strategy (e.g., 'Pricing tiers', 'Ad placement strategy', 'Value proposition for premium features').")
+});
+export type MonetizationStrategy = z.infer<typeof MonetizationStrategySchema>;

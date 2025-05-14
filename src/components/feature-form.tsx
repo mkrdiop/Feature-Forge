@@ -9,16 +9,21 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { 
   Loader2, AlertTriangle, Info, CalendarDays, Lightbulb, FileJson, FileText, 
-  Download, Sparkles, Cpu, Users, UserCircle, Target, Activity, ThumbsUp, ThumbsDown, Briefcase, Brain 
+  Download, Sparkles, Cpu, Users, UserCircle, Target, Activity, ThumbsUp, ThumbsDown, 
+  Briefcase, Brain, DollarSign, TrendingUp, HelpCircle, AlertCircle
 } from 'lucide-react';
+
 import { suggestFeatures } from '@/ai/flows/suggest-features';
 import type { SuggestFeaturesOutput, FeatureDetail } from '@/ai/flows/suggest-features';
 import { suggestDevPlan } from '@/ai/flows/suggest-dev-plan';
 import type { SuggestDevPlanOutput, DevPlanPhase as OriginalDevPlanPhase } from '@/ai/flows/suggest-dev-plan';
 import { suggestAiAcceleratedDevPlan } from '@/ai/flows/suggest-ai-accelerated-dev-plan';
 import type { SuggestAiAcceleratedDevPlanOutput, AiAcceleratedDevPlanPhase as OriginalAiDevPlanPhase } from '@/ai/flows/suggest-ai-accelerated-dev-plan';
-import { suggestUserPersonas } from '@/ai/flows/suggest-user-personas'; // New import for personas
-import type { SuggestUserPersonasOutput, UserPersona } from '@/ai/flows/suggest-user-personas'; // New import for persona types
+import { suggestUserPersonas } from '@/ai/flows/suggest-user-personas';
+import type { SuggestUserPersonasOutput, UserPersona } from '@/ai/flows/suggest-user-personas';
+import { suggestMonetizationStrategies } from '@/ai/flows/suggest-monetization-strategies'; // New import
+import type { SuggestMonetizationStrategiesOutput, MonetizationStrategy } from '@/ai/flows/suggest-monetization-strategies'; // New import
+
 
 import FeatureCard from '@/components/feature-card';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from './ui/card';
@@ -71,6 +76,10 @@ export default function FeatureForm() {
   const [isLoadingPersonas, setIsLoadingPersonas] = useState<boolean>(false);
   const [personasError, setPersonasError] = useState<string | null>(null);
 
+  const [monetizationStrategies, setMonetizationStrategies] = useState<MonetizationStrategy[]>([]);
+  const [isLoadingMonetization, setIsLoadingMonetization] = useState<boolean>(false);
+  const [monetizationError, setMonetizationError] = useState<string | null>(null);
+
 
   const sanitizeFilename = (name: string) => {
     if (!name) return 'app-idea';
@@ -106,6 +115,8 @@ export default function FeatureForm() {
     setAiDevPlanError(null);
     setUserPersonas([]);
     setPersonasError(null);
+    setMonetizationStrategies([]);
+    setMonetizationError(null);
 
 
     try {
@@ -186,6 +197,30 @@ export default function FeatureForm() {
       setAiDevPlanError("An error occurred while generating the AI-accelerated development plan. Please try again.");
     } finally {
       setIsLoadingAiDevPlan(false);
+    }
+  };
+
+  const handleGenerateMonetizationStrategies = async () => {
+    if (features.length === 0 || !appDescription) {
+      setMonetizationError("Please generate features first and ensure an app description is provided.");
+      return;
+    }
+    setIsLoadingMonetization(true);
+    setMonetizationError(null);
+    setMonetizationStrategies([]);
+
+    try {
+      const result: SuggestMonetizationStrategiesOutput = await suggestMonetizationStrategies({ appDescription, features });
+      if (result.strategies && result.strategies.length > 0) {
+        setMonetizationStrategies(result.strategies);
+      } else {
+        setMonetizationError("No monetization strategies were suggested. Try refining your app description or features.");
+      }
+    } catch (e) {
+      console.error(e);
+      setMonetizationError("An error occurred while generating monetization strategies. Please try again.");
+    } finally {
+      setIsLoadingMonetization(false);
     }
   };
 
@@ -303,15 +338,37 @@ export default function FeatureForm() {
     downloadFile(`${projectName}-ai-accelerated-dev-plan.md`, mdData, 'text/markdown');
   };
 
+  // Export Monetization Strategies
+  const handleExportMonetizationAsJSON = () => {
+    if (!monetizationStrategies.length) return;
+    const projectName = sanitizeFilename(devPlan?.projectName || aiDevPlan?.projectName || 'app');
+    const jsonData = JSON.stringify(monetizationStrategies, null, 2);
+    downloadFile(`${projectName}-monetization-strategies.json`, jsonData, 'application/json');
+  };
+
+  const handleExportMonetizationAsMarkdown = () => {
+    if (!monetizationStrategies.length) return;
+    const projectName = sanitizeFilename(devPlan?.projectName || aiDevPlan?.projectName || 'app');
+    let mdData = `# Monetization Strategies for "${appDescription.substring(0, 50)}${appDescription.length > 50 ? '...' : ''}"\n\n`;
+    mdData += `Based on your app description and features.\n\n---\n\n`;
+    monetizationStrategies.forEach(strategy => {
+      mdData += `## Strategy: ${strategy.strategyName}\n\n`;
+      mdData += `**Description:** ${strategy.description}\n\n`;
+      mdData += `**Suitability for this App:** ${strategy.suitabilityRationale}\n\n`;
+      mdData += `**Potential Drawbacks:** ${strategy.potentialDrawbacks}\n\n`;
+      mdData += `**Key Considerations:**\n${strategy.keyConsiderations.map(c => `- ${c}`).join('\n')}\n\n---\n\n`;
+    });
+    downloadFile(`${projectName}-monetization-strategies.md`, mdData, 'text/markdown');
+  };
 
   useEffect(() => {
     // Placeholder for any client-side specific initializations
   }, []);
 
-  const anyLoading = isLoadingFeatures || isLoadingDevPlan || isLoadingAiDevPlan || isLoadingPersonas;
+  const anyLoading = isLoadingFeatures || isLoadingDevPlan || isLoadingAiDevPlan || isLoadingPersonas || isLoadingMonetization;
 
   return (
-    <div className="max-w-4xl mx-auto"> {/* Increased max-width for personas */}
+    <div className="max-w-4xl mx-auto">
       <form onSubmit={handleFeatureSubmit} className="space-y-6 mb-12">
         <div>
           <Textarea
@@ -397,11 +454,11 @@ export default function FeatureForm() {
             </Button>
           </div>
           
-          <div className="mt-10 text-center">
+          <div className="mt-10 text-center space-y-4 sm:space-y-0 sm:space-x-4">
              <Button 
               onClick={handleGenerateUserPersonas} 
               disabled={anyLoading || !appDescription.trim()}
-              className="w-full sm:w-auto bg-purple-600 text-white hover:bg-purple-700 mr-0 sm:mr-4 mb-4 sm:mb-0" // Adjusted margin for stacking
+              className="w-full sm:w-auto bg-purple-600 text-white hover:bg-purple-700" 
               size="lg"
             >
               {isLoadingPersonas ? (
@@ -431,6 +488,24 @@ export default function FeatureForm() {
                 <>
                   <CalendarDays className="mr-2 h-5 w-5" />
                   Generate Standard Dev Plan
+                </>
+              )}
+            </Button>
+             <Button 
+              onClick={handleGenerateMonetizationStrategies} 
+              disabled={anyLoading || features.length === 0}
+              className="w-full sm:w-auto bg-yellow-500 text-black hover:bg-yellow-600"
+              size="lg"
+            >
+              {isLoadingMonetization ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Suggesting Strategies...
+                </>
+              ) : (
+                <>
+                  <DollarSign className="mr-2 h-5 w-5" />
+                  Suggest Monetization
                 </>
               )}
             </Button>
@@ -536,6 +611,94 @@ export default function FeatureForm() {
             </Button>
           </div>
         </div>
+      )}
+      
+      {monetizationError && (
+        <Alert variant="destructive" className="mb-8 animate-in fade-in-0">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Monetization Strategy Error</AlertTitle>
+          <AlertDescription>{monetizationError}</AlertDescription>
+        </Alert>
+      )}
+
+      {isLoadingMonetization && (
+        <div className="text-center py-10">
+          <Loader2 className="h-12 w-12 animate-spin text-yellow-500 mx-auto" />
+          <p className="mt-4 text-muted-foreground">Brainstorming monetization strategies...</p>
+        </div>
+      )}
+
+      {monetizationStrategies.length > 0 && !isLoadingMonetization && (
+        <Card className="w-full shadow-xl animate-in fade-in-0 slide-in-from-bottom-5 mb-12 border-yellow-500/70">
+          <CardHeader className="pb-4 bg-yellow-500/10">
+            <CardTitle className="text-2xl sm:text-3xl font-bold text-center text-yellow-700 flex items-center justify-center gap-2">
+              <DollarSign className="h-7 w-7" /> Potential Monetization Strategies
+            </CardTitle>
+            <p className="text-center text-muted-foreground pt-1">Consider these strategies for your app.</p>
+          </CardHeader>
+          <CardContent className="space-y-6 px-4 sm:px-6 pb-6">
+            <Accordion type="multiple" className="w-full">
+              {monetizationStrategies.map((strategy, index) => (
+                <AccordionItem value={`monetization-${index}`} key={index} className="border-border">
+                  <AccordionTrigger className="text-lg hover:no-underline">
+                    <div className="flex items-center gap-3">
+                       <span className="text-yellow-600 font-semibold">{strategy.strategyName}</span> 
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="pt-2 pb-4 px-1 space-y-3">
+                    <div>
+                      <h5 className="text-sm font-semibold text-foreground mb-1">Description:</h5>
+                      <p className="text-sm text-muted-foreground">{strategy.description}</p>
+                    </div>
+                    <div>
+                      <h5 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-1.5">
+                        <TrendingUp className="h-4 w-4 text-green-600" /> Suitability Rationale:
+                      </h5>
+                      <p className="text-sm text-muted-foreground">{strategy.suitabilityRationale}</p>
+                    </div>
+                    <div>
+                      <h5 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-1.5">
+                        <AlertCircle className="h-4 w-4 text-red-600" /> Potential Drawbacks:
+                      </h5>
+                      <p className="text-sm text-muted-foreground">{strategy.potentialDrawbacks}</p>
+                    </div>
+                     <div>
+                      <h5 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-1.5">
+                        <HelpCircle className="h-4 w-4 text-blue-600" /> Key Considerations:
+                      </h5>
+                      <ul className="list-disc list-inside pl-2 space-y-1 text-sm text-muted-foreground">
+                        {strategy.keyConsiderations.map((item, idx) => (
+                          <li key={idx}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          </CardContent>
+           <CardFooter className="flex-col sm:flex-row justify-center items-center gap-4 pt-4 border-t border-border">
+            <h4 className="text-md font-medium text-muted-foreground mb-2 sm:mb-0">Export Strategies:</h4>
+            <Button 
+              onClick={handleExportMonetizationAsJSON} 
+              variant="outline"
+              size="sm"
+              disabled={anyLoading || monetizationStrategies.length === 0}
+              className="border-yellow-500 text-yellow-600 hover:bg-yellow-500/10 hover:text-yellow-700"
+            >
+              <FileJson className="mr-2 h-4 w-4" /> JSON
+            </Button>
+            <Button 
+              onClick={handleExportMonetizationAsMarkdown} 
+              variant="outline"
+              size="sm"
+              disabled={anyLoading || monetizationStrategies.length === 0}
+               className="border-yellow-500 text-yellow-600 hover:bg-yellow-500/10 hover:text-yellow-700"
+            >
+              <FileText className="mr-2 h-4 w-4" /> Markdown
+            </Button>
+          </CardFooter>
+        </Card>
       )}
 
 
