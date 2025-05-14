@@ -7,14 +7,27 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Loader2, AlertTriangle, Info, CalendarDays, Lightbulb, FileJson, FileText, Download } from 'lucide-react';
+import { Loader2, AlertTriangle, Info, CalendarDays, Lightbulb, FileJson, FileText, Download, Sparkles } from 'lucide-react'; // Added Sparkles
 import { suggestFeatures } from '@/ai/flows/suggest-features';
 import type { SuggestFeaturesOutput, FeatureDetail } from '@/ai/flows/suggest-features';
 import { suggestDevPlan } from '@/ai/flows/suggest-dev-plan';
-import type { SuggestDevPlanOutput, DevPlanPhase } from '@/ai/flows/suggest-dev-plan';
+import type { SuggestDevPlanOutput, DevPlanPhase as OriginalDevPlanPhase } from '@/ai/flows/suggest-dev-plan'; // Renamed to avoid conflict
 import FeatureCard from '@/components/feature-card';
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from './ui/card'; // Added CardFooter
-import { Separator } from './ui/separator'; // Added Separator
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from './ui/card';
+import { Separator } from './ui/separator';
+
+// Define local type for DevPlanPhase including genkitPromptSuggestions
+interface GenkitPromptSuggestion {
+  featureName: string;
+  suggestedPrompt: string;
+}
+interface DevPlanPhase extends OriginalDevPlanPhase {
+  genkitPromptSuggestions?: GenkitPromptSuggestion[];
+}
+interface ExtendedSuggestDevPlanOutput extends Omit<SuggestDevPlanOutput, 'phases'> {
+  phases: DevPlanPhase[];
+}
+
 
 export default function FeatureForm() {
   const [appDescription, setAppDescription] = useState<string>('');
@@ -23,7 +36,7 @@ export default function FeatureForm() {
   const [featuresError, setFeaturesError] = useState<string | null>(null);
   const [showInitialMessage, setShowInitialMessage] = useState<boolean>(true);
 
-  const [devPlan, setDevPlan] = useState<SuggestDevPlanOutput | null>(null);
+  const [devPlan, setDevPlan] = useState<ExtendedSuggestDevPlanOutput | null>(null);
   const [isLoadingDevPlan, setIsLoadingDevPlan] = useState<boolean>(false);
   const [devPlanError, setDevPlanError] = useState<string | null>(null);
 
@@ -79,7 +92,8 @@ export default function FeatureForm() {
     setDevPlan(null);
 
     try {
-      const result: SuggestDevPlanOutput = await suggestDevPlan({ appDescription, features });
+      // Cast to ExtendedSuggestDevPlanOutput to satisfy TypeScript
+      const result = await suggestDevPlan({ appDescription, features }) as ExtendedSuggestDevPlanOutput;
       setDevPlan(result);
     } catch (e) {
       console.error(e);
@@ -93,7 +107,7 @@ export default function FeatureForm() {
   const handleExportFeaturesAsJSON = () => {
     if (!features.length) return;
     const jsonData = JSON.stringify(features, null, 2);
-    downloadFile(`${devPlan?.projectName || 'app'}-features.json`, jsonData, 'application/json');
+    downloadFile(`${devPlan?.projectName.replace(/\s+/g, '-').toLowerCase() || 'app'}-features.json`, jsonData, 'application/json');
   };
 
   const handleExportFeaturesAsMarkdown = () => {
@@ -106,14 +120,14 @@ export default function FeatureForm() {
       mdData += `**Category:** ${feature.category}\n`;
       mdData += `**Complexity:** ${feature.complexity}\n\n---\n\n`;
     });
-    downloadFile(`${devPlan?.projectName || 'app'}-features.md`, mdData, 'text/markdown');
+    downloadFile(`${devPlan?.projectName.replace(/\s+/g, '-').toLowerCase() || 'app'}-features.md`, mdData, 'text/markdown');
   };
 
   // Export Dev Plan
   const handleExportDevPlanAsJSON = () => {
     if (!devPlan) return;
     const jsonData = JSON.stringify(devPlan, null, 2);
-    downloadFile(`${devPlan.projectName}-dev-plan.json`, jsonData, 'application/json');
+    downloadFile(`${devPlan.projectName.replace(/\s+/g, '-').toLowerCase()}-dev-plan.json`, jsonData, 'application/json');
   };
 
   const handleExportDevPlanAsMarkdown = () => {
@@ -126,11 +140,18 @@ export default function FeatureForm() {
       mdData += `### ${phase.phaseTitle}\n`;
       mdData += `**Goal:** ${phase.phaseGoal}\n`;
       mdData += `**Estimated Duration:** ${phase.estimatedDuration}\n`;
-      mdData += `**Features to Implement:**\n${phase.featuresToImplement.map(f => `- ${f}`).join('\n')}\n\n`;
+      mdData += `**Features to Implement:**\n${phase.featuresToImplement.map(f => `- ${f}`).join('\n')}\n`;
+      if (phase.genkitPromptSuggestions && phase.genkitPromptSuggestions.length > 0) {
+        mdData += `\n**💡 Genkit Prompt Ideas:**\n`;
+        phase.genkitPromptSuggestions.forEach(suggestion => {
+          mdData += `  - **For Feature "${suggestion.featureName}":** \`${suggestion.suggestedPrompt}\`\n`;
+        });
+      }
+      mdData += `\n`;
     });
     mdData += `---\n\n## Overall Estimated Timeline\n${devPlan.overallTimeline}\n\n---\n\n`;
     mdData += `## Key Recommendations\n${devPlan.recommendations.map(rec => `- ${rec}`).join('\n')}\n`;
-    downloadFile(`${devPlan.projectName}-dev-plan.md`, mdData, 'text/markdown');
+    downloadFile(`${devPlan.projectName.replace(/\s+/g, '-').toLowerCase()}-dev-plan.md`, mdData, 'text/markdown');
   };
 
 
@@ -286,12 +307,34 @@ export default function FeatureForm() {
                       </AccordionTrigger>
                       <AccordionContent className="pt-2 pb-4 px-1 space-y-3">
                         <p className="text-sm text-foreground font-medium">{phase.phaseGoal}</p>
-                        <p className="text-sm text-muted-foreground">Features to implement:</p>
-                        <ul className="list-disc list-inside pl-2 space-y-1 text-sm text-muted-foreground">
-                          {phase.featuresToImplement.map((featureName, idx) => (
-                            <li key={idx}>{featureName}</li>
-                          ))}
-                        </ul>
+                        <div>
+                          <p className="text-sm text-muted-foreground font-medium">Features to implement:</p>
+                          <ul className="list-disc list-inside pl-2 space-y-1 text-sm text-muted-foreground">
+                            {phase.featuresToImplement.map((featureName, idx) => (
+                              <li key={idx}>{featureName}</li>
+                            ))}
+                          </ul>
+                        </div>
+                        {phase.genkitPromptSuggestions && phase.genkitPromptSuggestions.length > 0 && (
+                          <div className="mt-3 pt-3 border-t border-dashed border-border/70">
+                            <h5 className="text-sm text-foreground font-semibold mb-2 flex items-center">
+                              <Sparkles className="h-4 w-4 mr-2 text-primary" />
+                              Genkit Prompt Ideas:
+                            </h5>
+                            <ul className="space-y-2">
+                              {phase.genkitPromptSuggestions.map((suggestion, idx) => (
+                                <li key={idx} className="text-xs">
+                                  <p className="text-muted-foreground mb-0.5">
+                                    For Feature: <strong className="text-foreground/90">{suggestion.featureName}</strong>
+                                  </p>
+                                  <code className="block bg-muted/70 p-2 rounded-md text-foreground whitespace-pre-wrap text-[0.7rem] leading-relaxed">
+                                    {suggestion.suggestedPrompt}
+                                  </code>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                       </AccordionContent>
                     </AccordionItem>
                   ))}
