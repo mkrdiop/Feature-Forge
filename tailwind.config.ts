@@ -8,7 +8,19 @@ export default {
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
+    container: { // Added container configuration
+      center: true,
+      padding: {
+        DEFAULT: '1rem',
+        sm: '2rem',
+        lg: '4rem',
+        xl: '5rem',
+      },
+    },
   	extend: {
+      fontFamily: {
+        sans: ["var(--font-inter)"], // Changed from --font-geist-sans to --font-inter
+      },
   		colors: {
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
@@ -83,6 +95,7 @@ export default {
   					height: '0'
   				}
   			}
+        // Removed custom fadeIn as tailwindcss-animate provides animate-in, fade-in, slide-in-from-bottom
   		},
   		animation: {
   			'accordion-down': 'accordion-down 0.2s ease-out',
